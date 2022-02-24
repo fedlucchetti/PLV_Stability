@@ -109,16 +109,27 @@ class SignalTools:
         freq              : waveform frequency
         ------------------------------------------------------------------------------------------
         """
+        print(bcolors.HEADER,"\n START: \t" + bcolors.ENDC + "Multithreading PLV matrix computation")
+        shared_dict         = Manager().dict()
         plv_avg_matrix      = np.zeros([len(savg_nums),len(savg_sizes)     ])
         plv_std_matrix      = np.zeros([len(savg_nums),len(savg_sizes)     ])
         waveform_idx        = self.__get_waveform_idx(SC_string)
-        print("plv_heatmap: 1. plv_avg_matrix.shape = ", plv_avg_matrix.shape)
-        for id1,savg_num in enumerate(tqdm(savg_nums)):
+        n_workers           = len(savg_nums)
+
+        def worker(self,plv_avg_matrix,plv_std_matrix,id1):
             for id2,savg_size in enumerate(tqdm(savg_sizes)):
-                plv                     = self.plv_single(savg_size,savg_num,SC_string=SC_string,phase_window_size=phase_window_size,freq=freq)
+                plv                     = self.plv_single(savg_size,savg_nums[id1], SC_string=SC_string,phase_window_size=phase_window_size,freq=freq)
                 plv_avg_matrix[id1,id2] = np.mean(plv[ton:toff])
-                plv_std_matrix[id1,id2] = np.std( plv[ton:toff])
-        print("plv_heatmap: 2. plv_avg_matrix.shape = ", plv_avg_matrix.shape)
+                plv_std_matrix[id1,id2] = np.std(plv[ton:toff])
+
+        threads=list()
+        for worker_id in range(n_workers):
+            threads.append(Thread(target=worker, args=(self,plv_avg_matrix,plv_std_matrix,worker_id)))
+        for thread in threads: thread.start()
+        for thread in threads: thread.join()
+        os.system("clear")
+        print(bcolors.OKGREEN,"\n DONE: multithreading PLV matric computation \n")
+
         return plv_avg_matrix,plv_std_matrix
 
     def plv_single(self,savg_size,n_savg,SC_string="EFRV",phase_window_size=50,freq=304):
@@ -148,7 +159,6 @@ class SignalTools:
         """
         sets plv_avg_matrix extries to 0 if std to big (avg < avg_std_ratio * std)
         """
-        print("detect_outlier: plv_avg_matrix.shape = ", plv_avg_matrix.shape)
         for id1  in range(plv_avg_matrix.shape[0]):
             for id2 in range(plv_avg_matrix.shape[1]):
                 if plv_avg_matrix[id1,id2] < avg_std_ratio*plv_std_matrix[id1,id2]:
