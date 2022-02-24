@@ -1,0 +1,12 @@
+#!/bin/bash
+ROOT=$(pwd)
+args=("$@")
+
+
+ROOTDESTPATH=/home/PLV_Stability
+
+
+docker run --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=${args[0]} \
+                          -it -v ${BINPATH}:${BINDESTPATH}   \
+                          -v ${ROOT}:${ROOTDESTPATH} \
+                          plv_stability-tf:latest
