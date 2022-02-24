@@ -9,7 +9,7 @@ from threading import Thread
 
 
 ###########################
-import utils, signaltools, bcolors
+from bin import utils, signaltools, bcolors
 utils   = utils.Utils()
 sig     = signaltools.SignalTools()
 bcolors = bcolors.bcolors()

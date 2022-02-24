@@ -1,5 +1,0 @@
-#!/bin/bash
-
-docker build - < Dockerfile -t plv_stability-tf
-# docker container create federated-tf:latest pip3 install -e . --name federated
-# docker exec -it federated-tf pip3 install -e .

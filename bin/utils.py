@@ -2,7 +2,7 @@ import numpy as np
 import sys,os,glob, csv
 from os.path import join, split
 from tqdm import tqdm
-import bcolors
+from bin import bcolors
 bcolors=bcolors.bcolors()
 N = 2048
 sAVG_FILE_PATTERN = "*xls"
@@ -36,8 +36,12 @@ class Utils:
         return np.array(data)
 
     def load_all_trials(self,files):
+        if len(files)==0:
+            print(bcolors.FAIL,"No sAVG files found, EXIT")
+            sys.exit()
         print("\n",bcolors.HEADER,"START:",bcolors.ENDC," Loading all trials into memory")
         RC8_V,RC8_H = np.zeros([len(files),N,16]),np.zeros([len(files),N,16])
+
         for file_index,file in enumerate(tqdm(files)):
             data                                = self.open_sAVG_file(file)
             RC8_V[file_index],RC8_H[file_index] = self.format_to_R_waveforms(data)

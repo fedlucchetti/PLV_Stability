@@ -3,14 +3,15 @@ import numpy as np
 import sys,os,glob, csv
 from os.path import join, split
 from scipy.signal import hilbert
-import utils
 from tqdm import tqdm
 from multiprocessing import Process, Manager
 from threading import Thread, Event, Lock
 
 
-import bcolors
+from bin import utils,bcolors
 bcolors=bcolors.bcolors()
+utils = utils.Utils()
+
 ##################################3
 N    = 2048
 FS   = 24414
@@ -20,7 +21,6 @@ t    = np.arange(0,DT*N,DT)
 ##################################3
 ##################################3
 
-utils = utils.Utils()
 
 class SignalTools:
     def __init__(self):
