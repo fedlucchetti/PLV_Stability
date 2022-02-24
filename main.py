@@ -35,6 +35,8 @@ def plot_heatmap(plv_avg_matrix,savg_sizes,savg_nums):
     plt.show(block=0)
 
 def main():
+    print("select path")
+    FFRFOLDER = join(utils.set_path(),"sAVG")
     files                         = np.array(utils.list_all_sAVG(join(FFRFOLDER)))
     sig.RC8_V,sig.RC8_H           = utils.load_all_trials(files)
     grand_average                 = sig.sub_average(savg_size=None,n_savg=1)
@@ -68,7 +70,8 @@ def main():
 if __name__ == '__main__':
     ###########################
     SAMPLEFOLDER = "samples"
-    FFRFOLDER = join(SAMPLEFOLDER,"183551","ENV304_LE","85dB","sAVG")
+
+    # FFRFOLDER = join(SAMPLEFOLDER,"183551","ENV304_LE","85dB","sAVG")
     ############ Specify on off latencies ###############
     ton=round(12/1000/DT);toff=round(69/1000/DT)
     ########################### Loop over the following sAVG settings

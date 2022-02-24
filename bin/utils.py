@@ -2,6 +2,8 @@ import numpy as np
 import sys,os,glob, csv
 from os.path import join, split
 from tqdm import tqdm
+from tkinter import filedialog as fd
+
 from bin import bcolors
 bcolors=bcolors.bcolors()
 N = 2048
@@ -34,6 +36,10 @@ class Utils:
                         row[id]=float(entry.replace(",","."))
                     data.append(row)
         return np.array(data)
+
+    def set_path(self):
+        path = fd.askopenfilenames(title='Choose a file',filetypes=[('all Meta_AVG_data files', '*Meta_AVG_data.json')])
+        return os.path.split(path[0])[0]
 
     def load_all_trials(self,files):
         if len(files)==0:
