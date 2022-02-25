@@ -8,9 +8,9 @@ from multiprocessing import Process, Manager
 from threading import Thread, Event, Lock
 
 
-from bin import utils,bcolors
+from bin import bcolors
 bcolors=bcolors.bcolors()
-utils = utils.Utils()
+# utils = utils.Utils()
 
 ##################################3
 N    = 2048
@@ -22,14 +22,15 @@ t    = np.arange(0,DT*N,DT)
 ##################################3
 
 
-class SignalTools:
-    def __init__(self):
-        self.rotation_matrix = utils.rotation_matrix()
+class SignalTools(object):
+    def __init__(self,utils):
+        self.utils = utils
+        self.rotation_matrix = self.utils.rotation_matrix()
         self.RC8_V,self.RC8_H = None,None
     def fft(self,waveform):
         return np.abs(np.fft.fft(waveform))
 
-    def prepare_R8(self,waveforms_RC):
+    def __prepare_R8(self,waveforms_RC):
         """
         transform the 16 RC waveforms from the Labview/TdT buffer into the 8 Ri waveforms
         before gPTPV rotation
@@ -49,7 +50,7 @@ class SignalTools:
         """
         applies gPTPV matrix rotation on R8 waveforms_sAVGs_H
         """
-        waveforms_R8         = self.prepare_R8(waveforms_RC) # see Labview implementation
+        waveforms_R8         = self.__prepare_R8(waveforms_RC) # see Labview implementation
         waveforms_analytical = np.transpose(sp.signal.hilbert(waveforms_R8))
         waveforms_gptpv      = np.matmul(np.real(self.rotation_matrix),np.real(waveforms_analytical))
         waveforms_gptpv      = waveforms_gptpv - np.matmul(np.imag(self.rotation_matrix),np.imag(waveforms_analytical))
@@ -97,18 +98,17 @@ class SignalTools:
 
 
 
-    def plv_heatmap(self,savg_sizes,savg_nums,SC_string="EFRV",ton=300,toff=1700,phase_window_size=50,freq=304):
+    def plv_heatmap(self,savg_sizes,savg_nums,SC_string="EFRV",phase_window_size=50):
         """
         computes the plv heatmap over varying number of subaverages of different sizes
         ------------------------------------------------------------------------------------------
         savg_sizes        : size of a sub average (=number of trials) [array]
         savg_nums         : number of subaverages [array]
         SC_string         : EFRV, CDTV, F1V, F2V, EFRH, CDTH, F1H, F2H
-        ton, toff         : onset and offset latency, waveform is cropped before plv computation
         phase_window_size : window size over which a local phase average is computed
-        freq              : waveform frequency
         ------------------------------------------------------------------------------------------
         """
+        ton,toff = self.utils.ton, self.utils.toff
         print(bcolors.HEADER,"\n START: \t" + bcolors.ENDC + "Multithreading PLV matrix computation")
         shared_dict         = Manager().dict()
         plv_avg_matrix      = np.zeros([len(savg_nums),len(savg_sizes)     ])
@@ -118,7 +118,8 @@ class SignalTools:
 
         def worker(self,plv_avg_matrix,plv_std_matrix,id1):
             for id2,savg_size in enumerate(tqdm(savg_sizes)):
-                plv                     = self.plv_single(savg_size,savg_nums[id1], SC_string=SC_string,phase_window_size=phase_window_size,freq=freq)
+                plv                     = self.plv_single(savg_size,savg_nums[id1], SC_string=SC_string,
+                                                          phase_window_size=phase_window_size)
                 plv_avg_matrix[id1,id2] = np.mean(plv[ton:toff])
                 plv_std_matrix[id1,id2] = np.std(plv[ton:toff])
 
@@ -127,12 +128,12 @@ class SignalTools:
             threads.append(Thread(target=worker, args=(self,plv_avg_matrix,plv_std_matrix,worker_id)))
         for thread in threads: thread.start()
         for thread in threads: thread.join()
-        os.system("clear")
         print(bcolors.OKGREEN,"\n DONE: multithreading PLV matric computation \n")
+        # os.system("clear")
 
         return plv_avg_matrix,plv_std_matrix
 
-    def plv_single(self,savg_size,n_savg,SC_string="EFRV",phase_window_size=50,freq=304):
+    def plv_single(self,savg_size,n_savg,SC_string="EFRV",phase_window_size=50):
         """
         Computes PLV for a given number of subaverages of fixed size
         ------------------------------------------------------------------------------------------
@@ -148,7 +149,7 @@ class SignalTools:
         waveform_idx = self.__get_waveform_idx(SC_string)
         for id_avg in subAVG_dict:
             analytic_signal     = sp.signal.hilbert(subAVG_dict[id_avg][SC_string[-1]][:,waveform_idx]) # [savg id ][channel][:,waveform_idx]
-            phase_efr[id_avg]   = np.abs(np.unwrap(np.angle(analytic_signal))-2*np.pi*freq*t)
+            phase_efr[id_avg]   = np.abs(np.unwrap(np.angle(analytic_signal)) - 2*np.pi*self.utils.freq_efr*t)
         plv = np.zeros([N])
         for it in range(N):
             it_min,it_max       = max(0,it-round(phase_window_size/2)),min(it+round(phase_window_size/2),N)

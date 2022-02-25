@@ -1,5 +1,5 @@
 import numpy as np
-import sys,os,glob, csv
+import sys,os,glob, csv, json
 from os.path import join, split
 from tqdm import tqdm
 from tkinter import filedialog as fd
@@ -8,7 +8,7 @@ from threading import Thread
 
 from bin import bcolors
 bcolors=bcolors.bcolors()
-N = 2048
+N = 2048; DT = 1/24414
 sAVG_FILE_PATTERN = "*xls"
 DATAFOLDER = "data"
 
@@ -40,8 +40,26 @@ class Utils:
         return np.array(data)
 
     def set_path(self):
-        path = fd.askopenfilenames(title='Choose a file',filetypes=[('all Meta_AVG_data files', '*Meta_AVG_data.json')])
+        path = fd.askopenfilenames(title='Choose a Meta_AVG_data file',
+                                   filetypes=[('all Meta_AVG_data files', '*Meta_AVG_data.json')])
+        self.Meta_AVG_data_path = path[0]
+        self.get_ton_toff_freq()
         return os.path.split(path[0])[0]
+
+    def get_ton_toff_freq(self):
+        print("opening ",self.Meta_AVG_data_path)
+        with open(self.Meta_AVG_data_path) as data_file: data = json.load(data_file)
+        latency = data["FFR"]["Channel-V"]["EFR"]["Analysis"]["Latency"]
+        length  = data["FFR"]["Channel-V"]["EFR"]["Analysis"]["Lenght"]
+        f1      = data["MetaData"]["Stimulus"]["F1"]
+        f2      = data["MetaData"]["Stimulus"]["F2"]
+        print(latency,length,f1,f2)
+        self.freq_efr = f2-f1
+        if type(latency)==str:
+            self.ton   =            round(float(latency.replace(",","."))/1000.0/DT)
+            self.toff  = self.ton + round(float(length.replace(",","."))/1000.0/DT)
+        else:
+            self.ton = 0; self.toff = N
 
     def load_all_trials(self,files):
 
@@ -56,6 +74,7 @@ class Utils:
         file_indices     = np.arange(0,n_files)
         sub_files        = [files[i:i + n_subfiles] for i in range(0, len(files), n_subfiles)]
         sub_file_indices = [file_indices[i:i + n_subfiles] for i in range(0, len(files), n_subfiles)]
+
         def worker(RC8_V,RC8_H,worker_id):
             _file_indices = sub_file_indices[worker_id]
             for file_index in tqdm(_file_indices):
@@ -67,8 +86,13 @@ class Utils:
         for thread in threads:             thread.start()
         for thread in threads:             thread.join()
 
+        shuffle_idx  = np.arange(RC8_V.shape[0])
+        new_H, new_V = np.zeros(RC8_V.shape),np.zeros(RC8_H.shape)
+        for r_id in range(RC8_V.shape[-1]):
+            np.random.shuffle(shuffle_idx)
+            new_V[:,:,r_id],new_H[:,:,r_id] = RC8_V[shuffle_idx,:,r_id],RC8_H[shuffle_idx,:,r_id]
         print("\n",bcolors.OKGREEN,"DONE:",bcolors.ENDC,"  Loading all trials into memory \n \n \n",)
-        return RC8_V,RC8_H
+        return new_V,RC8_H
 
     def format_to_R_waveforms(self,data):
         waveforms_RC_V = np.zeros([N,16])
