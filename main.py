@@ -58,7 +58,7 @@ def main():
     sig.RC8_V,sig.RC8_H           = utils.load_all_trials(files)
     grand_average                 = sig.sub_average(savg_size=None,n_savg=1)
     plv_avg_matrix,plv_std_matrix = sig.plv_heatmap(savg_sizes,savg_nums,
-                                                    SC_string="EFRV",ton=ton,toff=toff,phase_window_size=50,freq=304)
+                                                    SC_string="EFRV",ton=ton,toff=toff,phase_window_size=64,freq=304)
     plv_avg_matrix                = sig.detect_outlier(plv_avg_matrix,plv_std_matrix,avg_std_ratio=3)
 
 
@@ -66,7 +66,7 @@ def main():
     # Select savg_size,savg_num region where PLV does not vary (approx)
     savg_size = int(input(bcolors.WARNING + "Enter sAVG size [int]     : "))
     savg_num  = int(input(bcolors.WARNING + "Enter number of AVGs [int]: "))
-    plv       = sig.plv_single(savg_size,savg_num,SC_string="EFRV",phase_window_size=50,freq=304)
+    plv       = sig.plv_single(savg_size,savg_num,SC_string="EFRV",phase_window_size=64,freq=304)
     plot_singlePLV(t,grand_average,plv,ton,toff)
 
 
@@ -80,7 +80,7 @@ if __name__ == '__main__':
     ############ Specify on off latencies ###############
     ton=round(12/1000/DT);toff=round(69/1000/DT)
     ########################### Loop over the following sAVG settings
-    savg_sizes   = np.arange(5,75,5)  # size of one sAVG
-    savg_nums    = np.arange(50,100,5) # number of sAVGs
+    savg_sizes   = np.arange(5,50,1)  # size of one sAVG
+    savg_nums    = np.arange(50,65,5) # number of sAVGs
     ###########################
     main()

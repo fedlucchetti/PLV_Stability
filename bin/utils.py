@@ -3,6 +3,8 @@ import sys,os,glob, csv
 from os.path import join, split
 from tqdm import tqdm
 from tkinter import filedialog as fd
+from threading import Thread
+
 
 from bin import bcolors
 bcolors=bcolors.bcolors()
@@ -42,16 +44,30 @@ class Utils:
         return os.path.split(path[0])[0]
 
     def load_all_trials(self,files):
+
+        n_workers  = 10
+        n_files    = len(files)
+        n_subfiles = round(n_files/n_workers)
         if len(files)==0:
             print(bcolors.FAIL,"No sAVG files found, EXIT")
             sys.exit()
         print("\n",bcolors.HEADER,"START:",bcolors.ENDC," Loading all trials into memory")
-        RC8_V,RC8_H = np.zeros([len(files),N,16]),np.zeros([len(files),N,16])
+        RC8_V,RC8_H      = np.zeros([n_files,N,16]),np.zeros([n_files,N,16])
+        file_indices     = np.arange(0,n_files)
+        sub_files        = [files[i:i + n_subfiles] for i in range(0, len(files), n_subfiles)]
+        sub_file_indices = [file_indices[i:i + n_subfiles] for i in range(0, len(files), n_subfiles)]
+        def worker(RC8_V,RC8_H,worker_id):
+            _file_indices = sub_file_indices[worker_id]
+            for file_index in tqdm(_file_indices):
+                data                                = self.open_sAVG_file(files[file_index])
+                RC8_V[file_index],RC8_H[file_index] = self.format_to_R_waveforms(data)
 
-        for file_index,file in enumerate(tqdm(files)):
-            data                                = self.open_sAVG_file(file)
-            RC8_V[file_index],RC8_H[file_index] = self.format_to_R_waveforms(data)
-        print("\n",bcolors.OKGREEN,"DONE:",bcolors.ENDC,"  Loading all trials into memory \n",)
+        threads=[]
+        for worker_id in range(n_workers): threads.append(Thread(target=worker, args=(RC8_V,RC8_H,worker_id)))
+        for thread in threads:             thread.start()
+        for thread in threads:             thread.join()
+
+        print("\n",bcolors.OKGREEN,"DONE:",bcolors.ENDC,"  Loading all trials into memory \n \n \n",)
         return RC8_V,RC8_H
 
     def format_to_R_waveforms(self,data):
