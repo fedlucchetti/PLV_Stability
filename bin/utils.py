@@ -61,6 +61,9 @@ class Utils:
         else:
             self.ton = 0; self.toff = N
 
+    def overlap(self, N, sizes):
+        return 6*sizes**2*(N**2-N)
+
     def load_all_trials(self,files):
 
         n_workers  = 10

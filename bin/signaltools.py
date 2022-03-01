@@ -133,7 +133,42 @@ class SignalTools(object):
 
         return plv_avg_matrix,plv_std_matrix
 
-    def plv_single(self,savg_size,n_savg,SC_string="EFRV",phase_window_size=50):
+    def plv_heatmap_overlap(self,overlap_array,savg_nums,SC_string="EFRV",phase_window_size=50):
+        """
+        computes the plv heatmap over varying number of subaverages of different sizes
+        ------------------------------------------------------------------------------------------
+        savg_sizes        : size of a sub average (=number of trials) [array]
+        savg_nums         : number of subaverages [array]
+        SC_string         : EFRV, CDTV, F1V, F2V, EFRH, CDTH, F1H, F2H
+        phase_window_size : window size over which a local phase average is computed
+        ------------------------------------------------------------------------------------------
+        """
+        ton,toff = self.utils.ton, self.utils.toff
+        print(bcolors.HEADER,"\n START: \t" + bcolors.ENDC + "Multithreading PLV matrix computation")
+        shared_dict         = Manager().dict()
+        plv_avg_matrix      = np.zeros([len(savg_nums),len(overlap_array)     ])
+        plv_std_matrix      = np.zeros([len(savg_nums),len(overlap_array)     ])
+        waveform_idx        = self.__get_waveform_idx(SC_string)
+        n_workers           = len(savg_nums)
+
+        def worker(self,plv_avg_matrix,plv_std_matrix,id1):
+            for id2,overlap in enumerate(tqdm(overlap_array)):
+                plv                     = self.plv_single(0,savg_nums[id1], SC_string=SC_string,
+                                                          phase_window_size=phase_window_size,overlap=overlap)
+                plv_avg_matrix[id1,id2] = np.mean(plv[ton:toff])
+                plv_std_matrix[id1,id2] = np.std(plv[ton:toff])
+
+        threads=list()
+        for worker_id in range(n_workers):
+            threads.append(Thread(target=worker, args=(self,plv_avg_matrix,plv_std_matrix,worker_id)))
+        for thread in threads: thread.start()
+        for thread in threads: thread.join()
+        print(bcolors.OKGREEN,"\n DONE: multithreading PLV matric computation \n")
+        # os.system("clear")
+
+        return plv_avg_matrix,plv_std_matrix
+
+    def plv_single(self,savg_size,n_savg,SC_string="EFRV",phase_window_size=50,overlap=-1):
         """
         Computes PLV for a given number of subaverages of fixed size
         ------------------------------------------------------------------------------------------
@@ -144,6 +179,8 @@ class SignalTools(object):
         freq              : waveform frequency
         ------------------------------------------------------------------------------------------
         """
+        if overlap!=-1: savg_size = round(np.sqrt(overlap/n_savg) * self.n_waveforms/16)
+        # print(overlap,savg_size)
         subAVG_dict  = self.sub_average(savg_size=savg_size,n_savg=n_savg)
         phase_efr    = np.zeros([n_savg,N])
         waveform_idx = self.__get_waveform_idx(SC_string)
@@ -155,6 +192,8 @@ class SignalTools(object):
             it_min,it_max       = max(0,it-round(phase_window_size/2)),min(it+round(phase_window_size/2),N)
             plv[it]             = np.abs(np.mean(np.exp(1j*phase_efr[:,it_min:it_max])))
         return plv
+
+
 
     def detect_outlier(self,plv_avg_matrix,plv_std_matrix,avg_std_ratio=3):
         """
