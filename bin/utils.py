@@ -55,11 +55,14 @@ class Utils:
         f2      = data["MetaData"]["Stimulus"]["F2"]
         print(latency,length,f1,f2)
         self.freq_efr = f2-f1
-        if type(latency)==str:
-            self.ton   =            round(float(latency.replace(",","."))/1000.0/DT)
-            self.toff  = self.ton + round(float(length.replace(",","."))/1000.0/DT)
+        if latency!='' and type(latency)==str:
+                    self.ton   =            round(float(latency.replace(",","."))/1000.0/DT)
+                    self.toff  = self.ton + round(float(length.replace(",","."))/1000.0/DT)
+        elif latency!=-1 and  type(latency)==float:
+                    self.ton   =            round(latency/1000.0/DT)
+                    self.toff  = self.ton + round(length/1000.0/DT)
         else:
-            self.ton = 0; self.toff = N
+                    self.ton = 0; self.toff = N
 
     def overlap(self, N, sizes):
         return 6*sizes**2*(N**2-N)
