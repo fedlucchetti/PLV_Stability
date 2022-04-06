@@ -98,7 +98,7 @@ class Utils:
             np.random.shuffle(shuffle_idx)
             new_V[:,:,r_id],new_H[:,:,r_id] = RC8_V[shuffle_idx,:,r_id],RC8_H[shuffle_idx,:,r_id]
         print("\n",bcolors.OKGREEN,"DONE:",bcolors.ENDC,"  Loading all trials into memory \n \n \n",)
-        return new_V,RC8_H
+        return new_V,new_H
 
     def format_to_R_waveforms(self,data):
         waveforms_RC_V = np.zeros([N,16])

@@ -64,7 +64,7 @@ class SignalTools(object):
         for RC_index in RC_indices:
             waveforms_RC_V+=self.RC8_V[RC_index]
             waveforms_RC_H+=self.RC8_H[RC_index]
-        waveforms_RC_V,waveforms_RC_V=waveforms_RC_V/len(RC_indices),waveforms_RC_V/len(RC_indices)
+        waveforms_RC_V,waveforms_RC_H=waveforms_RC_V/len(RC_indices),waveforms_RC_H/len(RC_indices)
         waveforms_gptpv_V = np.transpose(self.gptpv(waveforms_RC_V))
         waveforms_gptpv_H = np.transpose(self.gptpv(waveforms_RC_H))
         return waveforms_gptpv_V,waveforms_gptpv_H
