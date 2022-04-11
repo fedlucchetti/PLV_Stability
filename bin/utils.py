@@ -40,29 +40,46 @@ class Utils:
         return np.array(data)
 
     def set_path(self):
-        path = fd.askopenfilenames(title='Choose a Meta_AVG_data file',
-                                   filetypes=[('all Meta_AVG_data files', '*Meta_AVG_data.json')])
-        self.Meta_AVG_data_path = path[0]
-        self.get_ton_toff_freq()
-        return os.path.split(path[0])[0]
+        # path = fd.askopenfilenames(title='Choose a Meta_AVG_data file',
+        #                            filetypes=[('all Meta_AVG_data files', '*Meta_AVG_data.json')])
+        # self.Meta_AVG_data_path = path[0]
+        # self.get_ton_toff_freq()
+        # return os.path.split(path[0])[0]
+        ## Read from cmd: python main.py (path to Meta_AVG_data.json) (SC to analyze)
+        try:
+            self.Meta_AVG_data_path = sys.argv[1]
+            self.SC = sys.argv[2]
+            self.get_ton_toff_freq()
+        except:
+            print("Input error \nEnter: python main.py (path to Meta_AVG_data.json) (SC to analyze)"); sys.exit();
+        
+        return os.path.dirname(self.Meta_AVG_data_path)
 
     def get_ton_toff_freq(self):
         print("opening ",self.Meta_AVG_data_path)
         with open(self.Meta_AVG_data_path) as data_file: data = json.load(data_file)
-        latency = data["FFR"]["Channel-V"]["EFR"]["Analysis"]["Latency"]
-        length  = data["FFR"]["Channel-V"]["EFR"]["Analysis"]["Lenght"]
-        f1      = data["MetaData"]["Stimulus"]["F1"]
-        f2      = data["MetaData"]["Stimulus"]["F2"]
-        print(latency,length,f1,f2)
-        self.freq_efr = f2-f1
-        if latency!='' and type(latency)==str:
-                    self.ton   =            round(float(latency.replace(",","."))/1000.0/DT)
-                    self.toff  = self.ton + round(float(length.replace(",","."))/1000.0/DT)
-        elif latency!=-1 and  type(latency)==float:
-                    self.ton   =            round(latency/1000.0/DT)
-                    self.toff  = self.ton + round(length/1000.0/DT)
-        else:
-                    self.ton = 0; self.toff = N
+        self.ton     = {"V":0,"H":0}
+        self.toff    = {"V":N,"H":N}
+        
+        f1           = data["MetaData"]["Stimulus"]["F1"]
+        f2           = data["MetaData"]["Stimulus"]["F2"]
+        frequency    = {'EFR':f2-f1,'EFR**':2*(f2-f1),'EFR***':3*(f2-f1),'F1':f1,'F2':f2,'CDT':2*f1-f2,'CDT*':2*f2-f1}
+        self.freq_SC = frequency[self.SC]
+
+        for ch in ["V","H"]:
+            latency = data["FFR"]["Channel-"+ch][self.SC]["Analysis"]["Latency"]
+            length  = data["FFR"]["Channel-"+ch][self.SC]["Analysis"]["Lenght"]
+            if latency!='' and type(latency)==str:
+                self.ton[ch]  =                round(float(latency.replace(",","."))/1000.0/DT)
+                self.toff[ch] = self.ton[ch] + round(float(length.replace(",","."))/1000.0/DT)
+                self.channel  = ch 
+            elif latency!=-1 and  type(latency)==float:
+                self.ton[ch]  =                round(latency/1000.0/DT)
+                self.toff[ch] = self.ton[ch] + round(length/1000.0/DT)
+                self.channel  = ch 
+            else:
+                print("SC non-detected in Channel V nor H"); sys.exit();
+
 
     def overlap(self, N, sizes):
         return 6*sizes**2*(N**2-N)

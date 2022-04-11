@@ -108,7 +108,7 @@ class SignalTools(object):
         phase_window_size : window size over which a local phase average is computed
         ------------------------------------------------------------------------------------------
         """
-        ton,toff = self.utils.ton, self.utils.toff
+        ton,toff = self.utils.ton[SC_string[-1]], self.utils.toff[SC_string[-1]]
         print(bcolors.HEADER,"\n START: \t" + bcolors.ENDC + "Multithreading PLV matrix computation")
         shared_dict         = Manager().dict()
         plv_avg_matrix      = np.zeros([len(savg_nums),len(savg_sizes)     ])
@@ -143,7 +143,7 @@ class SignalTools(object):
         phase_window_size : window size over which a local phase average is computed
         ------------------------------------------------------------------------------------------
         """
-        ton,toff = self.utils.ton, self.utils.toff
+        ton,toff = self.utils.ton[SC_string[-1]], self.utils.toff[SC_string[-1]]
         print(bcolors.HEADER,"\n START: \t" + bcolors.ENDC + "Multithreading PLV matrix computation")
         shared_dict         = Manager().dict()
         plv_avg_matrix      = np.zeros([len(savg_nums),len(overlap_array)     ])
@@ -186,7 +186,7 @@ class SignalTools(object):
         waveform_idx = self.__get_waveform_idx(SC_string)
         for id_avg in subAVG_dict:
             analytic_signal     = sp.signal.hilbert(subAVG_dict[id_avg][SC_string[-1]][:,waveform_idx]) # [savg id ][channel][:,waveform_idx]
-            phase_efr[id_avg]   = np.abs(np.unwrap(np.angle(analytic_signal)) - 2*np.pi*self.utils.freq_efr*t)
+            phase_efr[id_avg]   = np.abs(np.unwrap(np.angle(analytic_signal)) - 2*np.pi*self.utils.freq_SC*t)
         plv = np.zeros([N])
         for it in range(N):
             it_min,it_max       = max(0,it-round(phase_window_size/2)),min(it+round(phase_window_size/2),N)
@@ -206,7 +206,13 @@ class SignalTools(object):
         return plv_avg_matrix
 
     def __get_waveform_idx(self,SC_string):
-        if  "EFR" in SC_string: return 0
+        if  SC_string[:-1] == 'EFR': return 0
+        elif  SC_string[:-1] == 'EFR**': return 1
+        elif  SC_string[:-1] == 'EFR***': return 2
+        elif  SC_string[:-1] == 'F1': return 3
+        elif  SC_string[:-1] == 'F2': return 4
+        elif  SC_string[:-1] == 'CDT': return 5
+        elif  SC_string[:-1] == 'CDT*': return 6
         else:
-            print(bcolors.FAIL,"Unrecognized SC string \n TODO, dont remember the ordering of the SCs")
+            print(bcolors.FAIL,"Unrecognized SC string")
             sys.exit()
