@@ -63,17 +63,17 @@ def plot_singlePLV(t,grand_average,plv,ton,toff,savg_num,overlap):
     plt.show(block=0)
 
 def main():
-    SC                            = utils.SC
-    channel                       = utils.channel
-    sig.RC8_V,sig.RC8_H           = utils.load_all_trials(files)
-    sig.n_waveforms               = len(files)*16
+    SC                                              = utils.SC
+    channel                                         = utils.channel
+    sig.RC8_V,sig.RC8_H,sig.RCnoise_V,sig.RCnoise_H = utils.load_all_trials(files)
+    sig.n_waveforms                                 = len(files)*16
     print("sig.RC8_V.shape",sig.RC8_V.shape)
-    grand_average                 = sig.sub_average(savg_size=None,n_savg=1)
+    grand_average                                   = sig.sub_average(savg_size=None,n_savg=1)
     # plv_avg_matrix,plv_std_matrix = sig.plv_heatmap(savg_sizes,savg_nums,
     #                                                 SC_string="EFRV",phase_window_size=64)
-    plv_avg_matrix,plv_std_matrix = sig.plv_heatmap_overlap(overlap_array,savg_nums,
-                                                    SC_string=SC+channel,phase_window_size=64)
-    plv_avg_matrix                = sig.detect_outlier(plv_avg_matrix,plv_std_matrix,avg_std_ratio=3)
+    plv_avg_matrix,plv_std_matrix                   = sig.plv_heatmap_overlap(overlap_array,savg_nums,
+                                                                                SC_string=SC+channel,phase_window_size=64)
+    plv_avg_matrix                                  = sig.detect_outlier(plv_avg_matrix,plv_std_matrix,avg_std_ratio=3)
     
 
     # # plot_heatmap(plv_avg_matrix,savg_sizes,savg_nums)
@@ -106,14 +106,16 @@ def main():
     
     for ch in ["V","H"]:
         ton,toff       = utils.ton[ch],utils.toff[ch]
-        plv = sig.plv_single(None,savg_num,SC_string=SC+ch,phase_window_size=64,overlap=overlap)
+        plv, plv_noise = sig.plv_single(None,savg_num,SC_string=SC+ch,phase_window_size=64,overlap=overlap)
 
         ## Save PLV in .json
         with open(utils.Meta_AVG_data_path) as data_file: data = json.load(data_file)
-        plv_dist = []
-        for _plv in plv[ton:toff]:
+        plv_dist, plv_noise_dist = [],[]
+        for i,_plv in enumerate(plv[ton:toff]):
             plv_dist.append(str(round(_plv,3)))
-        data["FFR"]["Channel-"+ch][SC]["Analysis"]['PLV'] = ",".join(plv_dist) 
+            plv_noise_dist.append(str(round(plv_noise[ton:toff][i],3)))
+        data["FFR"]["Channel-"+ch][SC]["Analysis"]['PLV'] = ",".join(plv_dist)
+        data["FFR"]["Channel-"+ch]["Noise"]["Analysis"]['PLV'] = ",".join(plv_noise_dist)
         with open(utils.Meta_AVG_data_path, 'w') as outfile: json.dump(data, outfile,ensure_ascii=False)
 
 

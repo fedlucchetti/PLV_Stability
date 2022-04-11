@@ -27,6 +27,7 @@ class SignalTools(object):
         self.utils = utils
         self.rotation_matrix = self.utils.rotation_matrix()
         self.RC8_V,self.RC8_H = None,None
+        self.RCnoise_V,self.RCnoise_H = None,None
     def fft(self,waveform):
         return np.abs(np.fft.fft(waveform))
 
@@ -61,13 +62,19 @@ class SignalTools(object):
         Averages over all specified indiced
         """
         waveforms_RC_V,waveforms_RC_H = np.zeros([N,16]),np.zeros([N,16])
+        noise_RC_V,noise_RC_H = np.zeros([N,16]),np.zeros([N,16])
         for RC_index in RC_indices:
             waveforms_RC_V+=self.RC8_V[RC_index]
             waveforms_RC_H+=self.RC8_H[RC_index]
+            noise_RC_V+=self.RCnoise_V[RC_index]
+            noise_RC_H+=self.RCnoise_H[RC_index]
         waveforms_RC_V,waveforms_RC_H=waveforms_RC_V/len(RC_indices),waveforms_RC_H/len(RC_indices)
+        noise_RC_V,noise_RC_H=noise_RC_V/len(RC_indices),noise_RC_H/len(RC_indices)
         waveforms_gptpv_V = np.transpose(self.gptpv(waveforms_RC_V))
         waveforms_gptpv_H = np.transpose(self.gptpv(waveforms_RC_H))
-        return waveforms_gptpv_V,waveforms_gptpv_H
+        noise_V,noise_H = np.sum(noise_RC_V,axis=1)/16,np.sum(noise_RC_H,axis=1)/16
+        
+        return waveforms_gptpv_V,waveforms_gptpv_H,noise_V,noise_H
 
     def sub_average(self,savg_size,n_savg):
         """
@@ -81,16 +88,16 @@ class SignalTools(object):
         n_workers         = n_savg
         list_file_id      = np.arange(0,self.RC8_V.shape[0])
         shared_dict       = Manager().dict()
-        for id in range(n_savg): shared_dict.update({id:{"V":np.zeros([N,8]),"H":np.zeros([N,8])}})
+        for id in range(n_savg): shared_dict.update({id:{"V":np.zeros([N,8]),"H":np.zeros([N,8]),"H":np.zeros([N,8]),"noiseV":np.zeros(N),"noiseH":np.zeros(N)}})
         if n_savg==1:
-            waveforms_sAVGs_V,waveforms_sAVGs_H = self.average(list_file_id)
-            shared_dict.update({0:{"V":waveforms_sAVGs_V,"H":waveforms_sAVGs_H}})
+            waveforms_sAVGs_V,waveforms_sAVGs_H,noise_sAVGs_V,noise_sAVGs_H  = self.average(list_file_id)
+            shared_dict.update({0:{"V":waveforms_sAVGs_V,"H":waveforms_sAVGs_H,'noiseV':noise_sAVGs_V,'noiseH':noise_sAVGs_H}})
             return shared_dict
         else:
             def worker(shared_dict,worker_id):
                 np.random.shuffle(list_file_id)
-                waveforms_sAVGs_V,waveforms_sAVGs_H = self.average(list_file_id[0:savg_size])
-                shared_dict.update({worker_id:{"V":waveforms_sAVGs_V,"H":waveforms_sAVGs_H}})
+                waveforms_sAVGs_V,waveforms_sAVGs_H,noise_sAVGs_V,noise_sAVGs_H = self.average(list_file_id[0:savg_size])
+                shared_dict.update({worker_id:{"V":waveforms_sAVGs_V,"H":waveforms_sAVGs_H,'noiseV':noise_sAVGs_V,'noiseH':noise_sAVGs_H}})
             threads=list()
             for worker_id in range(n_workers): threads.append(Thread(target=worker, args=(shared_dict,worker_id)))
             for thread in threads:             thread.start()
@@ -118,7 +125,7 @@ class SignalTools(object):
 
         def worker(self,plv_avg_matrix,plv_std_matrix,id1):
             for id2,savg_size in enumerate(tqdm(savg_sizes)):
-                plv                     = self.plv_single(savg_size,savg_nums[id1], SC_string=SC_string,
+                plv,_                     = self.plv_single(savg_size,savg_nums[id1], SC_string=SC_string,
                                                           phase_window_size=phase_window_size)
                 plv_avg_matrix[id1,id2] = np.mean(plv[ton:toff])
                 plv_std_matrix[id1,id2] = np.std(plv[ton:toff])
@@ -153,7 +160,7 @@ class SignalTools(object):
 
         def worker(self,plv_avg_matrix,plv_std_matrix,id1):
             for id2,overlap in enumerate(tqdm(overlap_array)):
-                plv                     = self.plv_single(0,savg_nums[id1], SC_string=SC_string,
+                plv,_                     = self.plv_single(0,savg_nums[id1], SC_string=SC_string,
                                                           phase_window_size=phase_window_size,overlap=overlap)
                 plv_avg_matrix[id1,id2] = np.mean(plv[ton:toff])
                 plv_std_matrix[id1,id2] = np.std(plv[ton:toff])
@@ -182,16 +189,19 @@ class SignalTools(object):
         if overlap!=-1: savg_size = round(np.sqrt(overlap/n_savg) * self.n_waveforms/16)
         # print(overlap,savg_size)
         subAVG_dict  = self.sub_average(savg_size=savg_size,n_savg=n_savg)
-        phase_efr    = np.zeros([n_savg,N])
+        phase_sc,phase_noise    = np.zeros([n_savg,N]),np.zeros([n_savg,N])
         waveform_idx = self.__get_waveform_idx(SC_string)
         for id_avg in subAVG_dict:
             analytic_signal     = sp.signal.hilbert(subAVG_dict[id_avg][SC_string[-1]][:,waveform_idx]) # [savg id ][channel][:,waveform_idx]
-            phase_efr[id_avg]   = np.abs(np.unwrap(np.angle(analytic_signal)) - 2*np.pi*self.utils.freq_SC*t)
-        plv = np.zeros([N])
+            an_sig_noise       = sp.signal.hilbert(subAVG_dict[id_avg]["noise"+SC_string[-1]])
+            phase_sc[id_avg]   = np.abs(np.unwrap(np.angle(analytic_signal)) - 2*np.pi*self.utils.freq_SC*t)
+            phase_noise[id_avg] = np.abs(np.unwrap(np.angle(an_sig_noise)) - np.unwrap(np.angle(sp.signal.hilbert(self.utils.Noise["Channel-"+SC_string[-1]]))))
+        plv, plv_noise = np.zeros([N]),np.zeros([N])
         for it in range(N):
             it_min,it_max       = max(0,it-round(phase_window_size/2)),min(it+round(phase_window_size/2),N)
-            plv[it]             = np.abs(np.mean(np.exp(1j*phase_efr[:,it_min:it_max])))
-        return plv
+            plv[it]             = np.abs(np.mean(np.exp(1j*phase_sc[:,it_min:it_max])))
+            plv_noise[it]       = np.abs(np.mean(np.exp(1j*phase_noise[:,it_min:it_max])))
+        return plv, plv_noise
 
 
 

@@ -79,6 +79,8 @@ class Utils:
                 self.channel  = ch 
             else:
                 print("SC non-detected in Channel V nor H"); sys.exit();
+        
+        self.Noise = {"Channel-V":data["FFR"]["Channel-V"]["Noise"]["AVG"]["Waveform"],"Channel-H":data["FFR"]["Channel-H"]["Noise"]["AVG"]["Waveform"]}
 
 
     def overlap(self, N, sizes):
@@ -94,35 +96,45 @@ class Utils:
             sys.exit()
         print("\n",bcolors.HEADER,"START:",bcolors.ENDC," Loading all trials into memory")
         RC8_V,RC8_H      = np.zeros([n_files,N,16]),np.zeros([n_files,N,16])
+        RCnoise_V,RCnoise_H = np.zeros([n_files,N,16]),np.zeros([n_files,N,16])
         file_indices     = np.arange(0,n_files)
         sub_files        = [files[i:i + n_subfiles] for i in range(0, len(files), n_subfiles)]
         sub_file_indices = [file_indices[i:i + n_subfiles] for i in range(0, len(files), n_subfiles)]
 
-        def worker(RC8_V,RC8_H,worker_id):
+        def worker(RC8_V,RC8_H,RCnoise_V,RCnoise_H,worker_id):
             _file_indices = sub_file_indices[worker_id]
             for file_index in tqdm(_file_indices):
                 data                                = self.open_sAVG_file(files[file_index])
-                RC8_V[file_index],RC8_H[file_index] = self.format_to_R_waveforms(data)
+                RC8_V[file_index],RC8_H[file_index],RCnoise_V[file_index],RCnoise_H[file_index] = self.format_to_R_waveforms(data)
 
         threads=[]
-        for worker_id in range(n_workers): threads.append(Thread(target=worker, args=(RC8_V,RC8_H,worker_id)))
+        for worker_id in range(n_workers): threads.append(Thread(target=worker, args=(RC8_V,RC8_H,RCnoise_V,RCnoise_H,worker_id)))
         for thread in threads:             thread.start()
         for thread in threads:             thread.join()
 
         shuffle_idx  = np.arange(RC8_V.shape[0])
         new_H, new_V = np.zeros(RC8_V.shape),np.zeros(RC8_H.shape)
+        new_noise_H, new_noise_V = np.zeros(RCnoise_H.shape),np.zeros(RCnoise_V.shape)
         for r_id in range(RC8_V.shape[-1]):
             np.random.shuffle(shuffle_idx)
             new_V[:,:,r_id],new_H[:,:,r_id] = RC8_V[shuffle_idx,:,r_id],RC8_H[shuffle_idx,:,r_id]
+            new_noise_V[:,:,r_id],new_noise_H[:,:,r_id] = RCnoise_V[shuffle_idx,:,r_id],RCnoise_H[shuffle_idx,:,r_id]
         print("\n",bcolors.OKGREEN,"DONE:",bcolors.ENDC,"  Loading all trials into memory \n \n \n",)
-        return new_V,new_H
+        return new_V,new_H, new_noise_V, new_noise_H
 
     def format_to_R_waveforms(self,data):
         waveforms_RC_V = np.zeros([N,16])
         waveforms_RC_H = np.zeros([N,16])
+        noise_RC_V = np.zeros([N,16])
+        noise_RC_H = np.zeros([N,16])
         for block_id in range(8):
             waveforms_RC_V[:,block_id]   = data[block_id*N:(block_id+1)*N,0]
             waveforms_RC_V[:,8+block_id] = data[block_id*N:(block_id+1)*N,2]
             waveforms_RC_H[:,block_id]   = data[block_id*N:(block_id+1)*N,4]
             waveforms_RC_H[:,8+block_id] = data[block_id*N:(block_id+1)*N,6]
-        return waveforms_RC_V,waveforms_RC_H
+
+            noise_RC_V[:,block_id]       = data[block_id*N:(block_id+1)*N,1]
+            noise_RC_V[:,8+block_id]     = data[block_id*N:(block_id+1)*N,3]
+            noise_RC_H[:,block_id]       = data[block_id*N:(block_id+1)*N,5]
+            noise_RC_H[:,8+block_id]     = data[block_id*N:(block_id+1)*N,7]
+        return waveforms_RC_V,waveforms_RC_H,noise_RC_V,noise_RC_H 
