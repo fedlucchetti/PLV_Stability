@@ -78,7 +78,10 @@ class Utils:
                 self.toff[ch] = self.ton[ch] + round(length/1000.0/DT)
                 self.channel  = ch 
             else:
-                print("SC non-detected in Channel V nor H"); sys.exit();
+                self.channel = None
+            
+        if self.channel is None:
+            print("SC non-detected in Channel V nor H"); sys.exit();
         
         self.Noise = {"Channel-V":data["FFR"]["Channel-V"]["Noise"]["AVG"]["Waveform"],"Channel-H":data["FFR"]["Channel-H"]["Noise"]["AVG"]["Waveform"]}
 
