@@ -73,7 +73,7 @@ class SignalTools(object):
         waveforms_gptpv_V = np.transpose(self.gptpv(waveforms_RC_V))
         waveforms_gptpv_H = np.transpose(self.gptpv(waveforms_RC_H))
         noise_V,noise_H = np.sum(noise_RC_V,axis=1)/16,np.sum(noise_RC_H,axis=1)/16
-        
+
         return waveforms_gptpv_V,waveforms_gptpv_H,noise_V,noise_H
 
     def sub_average(self,savg_size,n_savg):
@@ -192,10 +192,10 @@ class SignalTools(object):
         phase_sc,phase_noise    = np.zeros([n_savg,N]),np.zeros([n_savg,N])
         waveform_idx = self.__get_waveform_idx(SC_string)
         for id_avg in subAVG_dict:
-            analytic_signal     = sp.signal.hilbert(subAVG_dict[id_avg][SC_string[-1]][:,waveform_idx]) # [savg id ][channel][:,waveform_idx]
-            an_sig_noise       = sp.signal.hilbert(subAVG_dict[id_avg]["noise"+SC_string[-1]])
+            analytic_signal     = hilbert(subAVG_dict[id_avg][SC_string[-1]][:,waveform_idx]) # [savg id ][channel][:,waveform_idx]
+            an_sig_noise       = hilbert(subAVG_dict[id_avg]["noise"+SC_string[-1]])
             phase_sc[id_avg]   = np.abs(np.unwrap(np.angle(analytic_signal)) - 2*np.pi*self.utils.freq_SC*t)
-            phase_noise[id_avg] = np.abs(np.unwrap(np.angle(an_sig_noise)) - np.unwrap(np.angle(sp.signal.hilbert(self.utils.Noise["Channel-"+SC_string[-1]]))))
+            phase_noise[id_avg] = np.abs(np.unwrap(np.angle(an_sig_noise)) - np.unwrap(np.angle(hilbert(self.utils.Noise["Channel-"+SC_string[-1]]))))
         plv, plv_noise = np.zeros([N]),np.zeros([N])
         for it in range(N):
             it_min,it_max       = max(0,it-round(phase_window_size/2)),min(it+round(phase_window_size/2),N)
