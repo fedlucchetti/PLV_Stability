@@ -195,7 +195,7 @@ class SignalTools(object):
             analytic_signal     = hilbert(subAVG_dict[id_avg][SC_string[-1]][:,waveform_idx]) # [savg id ][channel][:,waveform_idx]
             an_sig_noise       = hilbert(subAVG_dict[id_avg]["noise"+SC_string[-1]])
             phase_sc[id_avg]   = np.abs(np.unwrap(np.angle(analytic_signal)) - 2*np.pi*self.utils.freq_SC*t)
-            phase_noise[id_avg] = np.abs(np.unwrap(np.angle(an_sig_noise)) - np.unwrap(np.angle(hilbert(self.utils.Noise["Channel-"+SC_string[-1]]))))
+            phase_noise[id_avg] = np.unwrap(np.angle(an_sig_noise))
         plv, plv_noise = np.zeros([N]),np.zeros([N])
         for it in range(N):
             it_min,it_max       = max(0,it-round(phase_window_size/2)),min(it+round(phase_window_size/2),N)
