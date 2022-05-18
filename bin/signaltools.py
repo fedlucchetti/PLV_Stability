@@ -125,8 +125,8 @@ class SignalTools(object):
 
         def worker(self,plv_avg_matrix,plv_std_matrix,id1):
             for id2,savg_size in enumerate(tqdm(savg_sizes)):
-                plv,_                     = self.plv_single(savg_size,savg_nums[id1], SC_string=SC_string,
-                                                          phase_window_size=phase_window_size)
+                plv,_,_                 = self.plv_single(savg_size,savg_nums[id1], SC_string=SC_string,
+                                                          phase_window_size=phase_window_size,get_phase_diff=False)
                 plv_avg_matrix[id1,id2] = np.mean(plv[ton:toff])
                 plv_std_matrix[id1,id2] = np.std(plv[ton:toff])
 
@@ -160,8 +160,8 @@ class SignalTools(object):
 
         def worker(self,plv_avg_matrix,plv_std_matrix,id1):
             for id2,overlap in enumerate(tqdm(overlap_array)):
-                plv,_                     = self.plv_single(0,savg_nums[id1], SC_string=SC_string,
-                                                          phase_window_size=phase_window_size,overlap=overlap)
+                plv,_,_                 = self.plv_single(0,savg_nums[id1], SC_string=SC_string,
+                                                          phase_window_size=phase_window_size,overlap=overlap,get_phase_diff=False)
                 plv_avg_matrix[id1,id2] = np.mean(plv[ton:toff])
                 plv_std_matrix[id1,id2] = np.std(plv[ton:toff])
 
@@ -175,7 +175,7 @@ class SignalTools(object):
 
         return plv_avg_matrix,plv_std_matrix
 
-    def plv_single(self,savg_size,n_savg,SC_string="EFRV",phase_window_size=50,overlap=-1):
+    def plv_single(self,savg_size,n_savg,SC_string="EFRV",phase_window_size=50,overlap=-1,get_phase_diff=False):
         """
         Computes PLV for a given number of subaverages of fixed size
         ------------------------------------------------------------------------------------------
@@ -188,20 +188,30 @@ class SignalTools(object):
         """
         if overlap!=-1: savg_size = round(np.sqrt(overlap/n_savg) * self.n_waveforms/16)
         # print(overlap,savg_size)
-        subAVG_dict  = self.sub_average(savg_size=savg_size,n_savg=n_savg)
-        phase_sc,phase_noise    = np.zeros([n_savg,N]),np.zeros([n_savg,N])
+        subAVG_dict          = self.sub_average(savg_size=savg_size,n_savg=n_savg)
+        phase_sc,phase_noise = np.zeros([n_savg,N]),np.zeros([n_savg,N])
+        phase_diff           = np.zeros(n_savg)
         waveform_idx = self.__get_waveform_idx(SC_string)
         for id_avg in subAVG_dict:
             analytic_signal     = hilbert(subAVG_dict[id_avg][SC_string[-1]][:,waveform_idx]) # [savg id ][channel][:,waveform_idx]
-            an_sig_noise       = hilbert(subAVG_dict[id_avg]["noise"+SC_string[-1]])
-            phase_sc[id_avg]   = np.abs(np.unwrap(np.angle(analytic_signal)) - 2*np.pi*self.utils.freq_SC*t)
+            an_sig_noise        = hilbert(subAVG_dict[id_avg]["noise"+SC_string[-1]])
+            phase_sc[id_avg]    = np.abs(np.unwrap(np.angle(analytic_signal)) - 2*np.pi*self.utils.freq_SC*t)
             phase_noise[id_avg] = np.unwrap(np.angle(an_sig_noise))
+
+            if get_phase_diff == True:
+                analytic_signal     = hilbert(subAVG_dict[id_avg]["V"][:,waveform_idx])
+                ip_V                = np.unwrap(np.angle(analytic_signal))
+                analytic_signal     = hilbert(subAVG_dict[id_avg]["H"][:,waveform_idx])
+                ip_H                = np.unwrap(np.angle(analytic_signal))
+                phase_shift         = 360*(self.utils.ton["V"]-self.utils.ton["H"])*DT/(1/self.utils.freq_SC) 
+                phase_diff[id_avg]  = np.mean([p+phase_shift for p in np.subtract(ip_V,ip_H)])
+
         plv, plv_noise = np.zeros([N]),np.zeros([N])
         for it in range(N):
             it_min,it_max       = max(0,it-round(phase_window_size/2)),min(it+round(phase_window_size/2),N)
             plv[it]             = np.abs(np.mean(np.exp(1j*phase_sc[:,it_min:it_max])))
             plv_noise[it]       = np.abs(np.mean(np.exp(1j*phase_noise[:,it_min:it_max])))
-        return plv, plv_noise
+        return plv, plv_noise,phase_diff
 
 
 

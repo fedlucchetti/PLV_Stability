@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import scipy as sp
 from threading import Thread
-
+from kneed import KneeLocator
 
 ###########################
 from bin import utils, signaltools, bcolors
@@ -86,37 +86,35 @@ def main():
     #     except Exception as e:
     #         print("Exception ",e,"unrecognized input")
     #         continue
-    #     plv       = sig.plv_single(None,savg_num,SC_string="EFRV",phase_window_size=64,overlap=overlap)
+    #     plv       = sig.plv_single(None,savg_num,SC_string="EFRV",phase_window_size=64,overlap=overlap,get_phase_diff=False)
     #     plot_singlePLV(t,grand_average,plv,ton,toff,savg_num,overlap)
     #     textinput = input("Try a different sAVG setting [y/n]?")
     #     if textinput=='y': continue
     #     elif textinput=='n': break
     #     else: print("Unrecognized: EXIT"); sys.exit();
 
-    savg_num  = 50
-    std_plv = np.std(plv_avg_matrix,axis=0)
-    for e in sorted(std_plv):
-        o_i = overlap_array[np.where(std_plv==e)[0][0]]
-        if o_i > 0.1 and o_i < 6:
-            overlap = o_i
-            break
-        else:
-            overlap = 1.4
-            continue
+    savg_num = 100
+    kneedle = KneeLocator(overlap_array, plv_avg_matrix[0], S=1.0, curve="concave", direction="increasing")
+    overlap = kneedle.elbow
+    if overlap == None:
+        overlap = 0.1
     
+    with open(utils.Meta_AVG_data_path) as data_file: data = json.load(data_file)
     for ch in ["V","H"]:
-        ton,toff       = utils.ton[ch],utils.toff[ch]
-        plv, plv_noise = sig.plv_single(None,savg_num,SC_string=SC+ch,phase_window_size=64,overlap=overlap)
+        ton,toff                   = utils.ton[ch],utils.toff[ch]
+        if ch == "V":
+            plv, plv_noise, phase_diff = sig.plv_single(None,savg_num,SC_string=SC+ch,phase_window_size=64,overlap=overlap,get_phase_diff=True)
+            data["FFR"]["Channel-V"][SC]["Analysis"]['InstPhase'] = ",".join([str(sub) for sub in phase_diff])
+        else:
+            plv, plv_noise, _= sig.plv_single(None,savg_num,SC_string=SC+ch,phase_window_size=64,overlap=overlap,get_phase_diff=False)
 
-        ## Save PLV in .json
-        with open(utils.Meta_AVG_data_path) as data_file: data = json.load(data_file)
-        plv_dist, plv_noise_dist = [],[]
-        for i,_plv in enumerate(plv[ton:toff]):
-            plv_dist.append(str(round(_plv,3)))
-            plv_noise_dist.append(str(round(plv_noise[ton:toff][i],3)))
-        data["FFR"]["Channel-"+ch][SC]["Analysis"]['PLV'] = ",".join(plv_dist)
-        data["FFR"]["Channel-"+ch]["Noise"]["Analysis"]['PLV'] = ",".join(plv_noise_dist)
-        with open(utils.Meta_AVG_data_path, 'w') as outfile: json.dump(data, outfile,ensure_ascii=False)
+        if SC == 'EFR':
+            plv_hd, _ , _ = sig.plv_single(None,savg_num,SC_string='EFR**'+ch,phase_window_size=64,overlap=overlap,get_phase_diff=False) 
+            data["FFR"]["Channel-"+ch]["EFR**"]["Analysis"]['PLV'] = round(np.mean(plv_hd[ton:toff]),3)
+            data["FFR"]["Channel-"+ch]["Noise"]["Analysis"]['PLV'] = round(np.mean(plv_noise[ton:toff]),3)
+
+        data["FFR"]["Channel-"+ch][SC]["Analysis"]['PLV'] = round(np.mean(plv[ton:toff]),3)       
+    with open(utils.Meta_AVG_data_path, 'w') as outfile: json.dump(data, outfile,ensure_ascii=False)
 
 
 
@@ -132,7 +130,7 @@ if __name__ == '__main__':
     # ton=round(12/1000/DT);toff=round(69/1000/DT)
     ########################### Loop over the following sAVG settings
     savg_sizes    = np.arange(100,1100,100)  # size of one sAVG
-    savg_nums     = np.arange(50,110,10) # number of sAVGs
-    overlap_array = np.arange(0.1,10,0.5)
+    savg_nums     = np.array([100])#np.arange(50,110,10) # number of sAVGs
+    overlap_array = np.arange(0.1,10,0.3)
     ###########################
     main()
