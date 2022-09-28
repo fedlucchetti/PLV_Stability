@@ -35,7 +35,10 @@ class Utils:
             for id,row in enumerate(spamreader):
                 if id >1:
                     for id, entry in enumerate(row):
-                        row[id]=float(entry.replace(",","."))
+                        if entry!="":
+                            row[id] = float(entry.replace(",","."))
+                        else:
+                            row[id] = 0 #for faulty files
                     data.append(row)
         return np.array(data)
 
@@ -78,14 +81,8 @@ class Utils:
                 self.toff[ch] = self.ton[ch] + round(length/1000.0/DT)
                 self.channel  = ch 
             else:
-                self.channel = None
-            
-        if self.channel is None:
-            print("SC non-detected in Channel V nor H"); sys.exit();
-        
-        self.Noise = {"Channel-V":data["FFR"]["Channel-V"]["Noise"]["AVG"]["Waveform"],"Channel-H":data["FFR"]["Channel-H"]["Noise"]["AVG"]["Waveform"]}
-
-
+                self.channel = "V"
+       
     def overlap(self, N, sizes):
         return 6*sizes**2*(N**2-N)
 
