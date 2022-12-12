@@ -86,8 +86,8 @@ def main():
     #     except Exception as e:
     #         print("Exception ",e,"unrecognized input")
     #         continue
-    #     plv       = sig.plv_single(None,savg_num,SC_string="EFRV",phase_window_size=64,overlap=overlap)
-    #     plot_singlePLV(t,grand_average,plv,ton,toff,savg_num,overlap)
+    # #     plv       = sig.plv_single(None,savg_num,SC_string="EFRV",phase_window_size=64,overlap=overlap)
+    # #     plot_singlePLV(t,grand_average,plv,ton,toff,savg_num,overlap)
     #     textinput = input("Try a different sAVG setting [y/n]?")
     #     if textinput=='y': continue
     #     elif textinput=='n': break
@@ -96,21 +96,27 @@ def main():
     savg_num = 100
     kneedle = KneeLocator(overlap_array, plv_avg_matrix[0], S=1.0, curve="concave", direction="increasing")
     overlap = kneedle.elbow
-    if overlap == None:
+    if overlap == None or overlap <1:
         overlap = 1.6
     print("overlap: "+str(overlap))
 
     with open(utils.Meta_AVG_data_path) as data_file: data = json.load(data_file)
     for ch in ["V","H"]:
-        ton,toff                   = utils.ton[ch],utils.toff[ch]
-        plv, plv_noise = sig.plv_single(None,savg_num,SC_string=SC+ch,phase_window_size=64,overlap=overlap)
+        for sc in ["EFR","CDT","F1","F2"]:
+            utils.SC = sc
+            utils.get_ton_toff_freq()
+            ton,toff = utils.ton[ch],utils.toff[ch]
+            if sc == "EFR":
+                plv, plv_noise = sig.plv_single(None,savg_num,SC_string=SC+ch,phase_window_size=64,overlap=overlap)
+                plv_hd = sig.plv_single(None,savg_num,SC_string='EFR**'+ch,phase_window_size=64,overlap=overlap) 
 
-        if SC == 'EFR':
-            plv_hd, _ = sig.plv_single(None,savg_num,SC_string='EFR**'+ch,phase_window_size=64,overlap=overlap) 
-            data["FFR"]["Channel-"+ch]["EFR**"]["Analysis"]['PLV'] = round(np.mean(plv_hd[ton:toff]),3)
-            data["FFR"]["Channel-"+ch]["Noise"]["Analysis"]['PLV'] = round(np.mean(plv_noise[ton:toff]),3)
-
-        data["FFR"]["Channel-"+ch][SC]["Analysis"]['PLV'] = round(np.mean(plv[ton:toff]),3)       
+                data["FFR"]["Channel-"+ch]["EFR"]["Analysis"]['PLV'] = round(np.mean(plv[ton:toff]),3) 
+                data["FFR"]["Channel-"+ch]["EFR**"]["Analysis"]['PLV'] = round(np.mean(plv_hd[ton:toff]),3)
+                data["FFR"]["Channel-"+ch]["Noise"]["Analysis"]['PLV'] = round(np.mean(plv_noise[ton:toff]),3)
+            
+            else:
+                plv = sig.plv_single(None,savg_num,SC_string=sc+ch,phase_window_size=64,overlap=overlap) 
+                data["FFR"]["Channel-"+ch][sc]["Analysis"]['PLV'] = round(np.mean(plv[ton:toff]),3)       
     with open(utils.Meta_AVG_data_path, 'w') as outfile: json.dump(data, outfile,ensure_ascii=False)
 
 if __name__ == '__main__':

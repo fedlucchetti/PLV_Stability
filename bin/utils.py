@@ -26,7 +26,7 @@ class Utils:
 
 
     def list_all_sAVG(self,root_path):
-         return glob.glob(join(root_path,sAVG_FILE_PATTERN))
+        return glob.glob(join(root_path,sAVG_FILE_PATTERN))
 
     def open_sAVG_file(self,path):
         data= []
@@ -66,8 +66,7 @@ class Utils:
         
         f1           = data["MetaData"]["Stimulus"]["F1"]
         f2           = data["MetaData"]["Stimulus"]["F2"]
-        frequency    = {'EFR':f2-f1,'EFR**':2*(f2-f1),'EFR***':3*(f2-f1),'F1':f1,'F2':f2,'CDT':2*f1-f2,'CDT*':2*f2-f1}
-        self.freq_SC = frequency[self.SC]
+        self.freq_SC = {'EFR':f2-f1,'EFR**':2*(f2-f1),'EFR***':3*(f2-f1),'F1':f1,'F2':f2,'CDT':2*f1-f2,'CDT*':2*f2-f1}
 
         for ch in ["V","H"]:
             latency = data["FFR"]["Channel-"+ch][self.SC]["Analysis"]["Latency"]

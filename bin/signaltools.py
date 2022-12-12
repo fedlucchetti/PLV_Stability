@@ -88,7 +88,7 @@ class SignalTools(object):
         n_workers         = n_savg
         list_file_id      = np.arange(0,self.RC8_V.shape[0])
         shared_dict       = Manager().dict()
-        for id in range(n_savg): shared_dict.update({id:{"V":np.zeros([N,8]),"H":np.zeros([N,8]),"H":np.zeros([N,8]),"noiseV":np.zeros(N),"noiseH":np.zeros(N)}})
+        for id in range(n_savg): shared_dict.update({id:{"V":np.zeros([N,8]),"H":np.zeros([N,8]),"noiseV":np.zeros(N),"noiseH":np.zeros(N)}})
         if n_savg==1:
             waveforms_sAVGs_V,waveforms_sAVGs_H,noise_sAVGs_V,noise_sAVGs_H  = self.average(list_file_id)
             shared_dict.update({0:{"V":waveforms_sAVGs_V,"H":waveforms_sAVGs_H,'noiseV':noise_sAVGs_V,'noiseH':noise_sAVGs_H}})
@@ -193,16 +193,21 @@ class SignalTools(object):
         waveform_idx = self.__get_waveform_idx(SC_string)
         for id_avg in subAVG_dict:
             analytic_signal     = hilbert(subAVG_dict[id_avg][SC_string[-1]][:,waveform_idx]) # [savg id ][channel][:,waveform_idx]
-            an_sig_noise       = hilbert(subAVG_dict[id_avg]["noise"+SC_string[-1]])
-            phase_sc[id_avg]   = np.abs(np.unwrap(np.angle(analytic_signal)) - 2*np.pi*self.utils.freq_SC*t)
-            phase_noise[id_avg] = np.unwrap(np.angle(an_sig_noise))
+            phase_sc[id_avg]   = np.abs(np.unwrap(np.angle(analytic_signal)) - 2*np.pi*self.utils.freq_SC[SC_string[:-1]]*t)
+            if SC_string[:-1]=='EFR': #To avoid calculating noise PLV for each SC PLV calculation
+                an_sig_noise       = hilbert(subAVG_dict[id_avg]["noise"+SC_string[-1]])
+                phase_noise[id_avg] = np.unwrap(np.angle(an_sig_noise))
         plv, plv_noise = np.zeros([N]),np.zeros([N])
         for it in range(N):
             it_min,it_max       = max(0,it-round(phase_window_size/2)),min(it+round(phase_window_size/2),N)
             plv[it]             = np.abs(np.mean(np.exp(1j*phase_sc[:,it_min:it_max])))
-            plv_noise[it]       = np.abs(np.mean(np.exp(1j*phase_noise[:,it_min:it_max])))
-        return plv, plv_noise
-
+            if SC_string[:-1]=='EFR':
+                plv_noise[it]       = np.abs(np.mean(np.exp(1j*phase_noise[:,it_min:it_max])))
+        
+        if SC_string[:-1]=='EFR':
+            return plv, plv_noise
+        else:
+            return plv
 
 
     def detect_outlier(self,plv_avg_matrix,plv_std_matrix,avg_std_ratio=3):
